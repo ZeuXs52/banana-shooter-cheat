@@ -1,68 +1,86 @@
-#include "combat.hpp"
+#include "combat.h"
 
-Player* Combat::closestPlayer(std::unordered_map<unsigned long long, Player*>& playerList, bool skipIfTeammate) {
+Player* combat::ClosestPlayer(std::unordered_map<unsigned long long, Multiplayer_Client_ClientPlayer_o*>& players)
+{
 	float bestDistance = FLT_MAX;
-	Player* bestPlayer = nullptr;
-	if (playerList.size() == 1) 
-	{
-		std::cout << "Only 1 enemy\n";
-		return playerList[0];
-	}
-	for (auto& [steamID, player] : playerList)
+
+	for (auto& [steamID, player] : players)
 	{
 		if (!player) {
-			playerList.erase(steamID);
+			players.erase(steamID);
 			continue;
 		}
 
-		if (g_Hack->localPlayer != nullptr && g_Hack->localPlayer->isAlive() && (player->isEnemyWith(g_Hack->localPlayer) && skipIfTeammate && player->isValid())) {
-			/*Vector3 local = g_Sdk.getTransformPosition(g_Hack->localPlayer->fields.head);
-			Vector3 enemy = g_Sdk.getTransformPosition(player->fields.head);*/
+		if (g_Hack->localPlayer != nullptr && g_Hack->localPlayer->fields.health > 0 && player->fields.health > 0) 
+		{ 
+			//if local and enemy alive, get their pos
+			Vector3 local = g_Sdk.getTransformPosition(g_Hack->localPlayer->fields.head);
+			Vector3 enemy = g_Sdk.getTransformPosition(player->fields.head);
 
-			Vector3 local = g_Hack->localPlayer->fields.desiredPos;
-			Vector3 enemy = player->fields.desiredPos;
-
+			//get distance between them
 			float distance = g_Sdk.getDistance(local, enemy);
 
+			//if distance is better than bestdistance, change bestdistance and return player*
 			if (distance < bestDistance) {
 				bestDistance = distance;
-				bestPlayer = player;
+				return player;
 			}
+			
 		}
 	}
 
-	return bestPlayer;
+	return nullptr;
+
+	//for (auto& [steamID, player] : g_Hack->players) {
+	//	if (!player) {
+	//		g_Hack->players.erase(steamID);
+	//		continue;
+	//	}
+
+	//	if (g_Hack->localPlayer != nullptr && g_Hack->localPlayer->fields.health > 0 && player->fields.health > 0) {
+	//		Vector3 localPos = g_Sdk.getTransformPosition(g_Hack->localPlayer->fields.head);
+	//		Vector3 enemyPos = g_Sdk.getTransformPosition(player->fields.head);
+
+	//		float distance = g_Sdk.getDistance(localPos, enemyPos);
+	//		if (distance < bestDistance) {
+	//			g_Hack->closestPlayer = player;
+	//			bestDistance = distance;
+	//		}
+	//	}
+	//}
 }
 
-void Combat::aimbot(Firearms_o* self, Player* player, const bool& bExplosive, const int& iHittarget)
+void combat::Aimbot(Firearms_o* this2, Player* player, const bool& bExplosive, const int& iHittarget)
 {
-	if (player == nullptr || !player->isValid())
-		return g_Hooks->oDoAttack(self);
+	if (player == nullptr || player->fields.health < 0)
+		return g_Hooks->oDoAttack(this2);
 
 	Vector3 aimPos = player->fields.desiredPos;
-
+	//std::cout << "We set aimpos to desiredpos!\n";
 	switch (iHittarget)
 	{
-	case 0: //head, bone 5 is head
-		aimPos = g_Sdk.bone_position_at_index(player->fields.bones, 5);
-		std::cout << std::format("AIMPOS: {}, {}, {}\n", aimPos.fields.x, aimPos.fields.y, aimPos.fields.z);
+	case 0:
+		//std::cout << "Hittarget head\n";
+		//set aimpos to head
+		aimPos = g_Sdk.getTransformPosition(player->fields.head);
+		//std::cout << "GEtTransfromPos end: " << std::format("Vector-> {}, {}, {} \n", aimPos.fields.x, aimPos.fields.y, aimPos.fields.z);
 		if (bExplosive)
-			g_Funcs->pCreateExplosiveBullet(self, aimPos);
+			g_Funcs->pCreateExplosiveBullet(this2, aimPos);
 		else
-			g_Funcs->pCreateBullet(self, aimPos);
+			g_Funcs->pCreateBullet(this2, aimPos);
 		break;
-	case 1: //body
+	case 1:
 		if (bExplosive)
-			g_Funcs->pCreateExplosiveBullet(self, aimPos);
+			g_Funcs->pCreateExplosiveBullet(this2, aimPos);
 		else
-			g_Funcs->pCreateBullet(self, aimPos);
+			g_Funcs->pCreateBullet(this2, aimPos);
 		break;
 	}
 
+	return g_Hooks->oDoAttack(this2);
 }
 
-void Combat::bulletMultiplier(Firearms_o* self, const int& iBulletcount)
+void combat::BulletMultiplier(Firearms_o* self, const int& iBulletcount)
 {
 	self->fields.bulletCount = iBulletcount;
 }
-
